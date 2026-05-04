@@ -1,0 +1,28 @@
+# Local Temporal + Postgres for durable publishing (see specs/engineering/temporal-publisher.md).
+# Usage: docker compose -f docker-compose.temporal.yml up -d
+#
+# temporalio/auto-setup expects DB to be a *driver* name (e.g. postgres12), not "postgresql".
+# See: https://github.com/temporalio/docker-compose/blob/main/docker-compose.yml
+services:
+  postgresql:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: temporal
+      POSTGRES_PASSWORD: temporal
+    expose:
+      - "5432"
+
+  temporal:
+    image: temporalio/auto-setup:1.25.2
+    depends_on:
+      - postgresql
+    environment:
+      DB: postgres12
+      DB_PORT: "5432"
+      POSTGRES_USER: temporal
+      POSTGRES_PWD: temporal
+      POSTGRES_SEEDS: postgresql
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_CLI_ADDRESS: temporal:7233
+    ports:
+      - "7233:7233"

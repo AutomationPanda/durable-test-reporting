@@ -12,4 +12,5 @@ Approved default stack for Dashing (full-stack **TypeScript**). Deviations requi
 ## Cross-cutting
 
 - **Temporal** is the intended mechanism for durable workflows and activities around result publishing.
+- The **`temporal-worker`** workspace hosts the suite publish workflow and HTTP activities; see [`temporal-publisher.md`](temporal-publisher.md).
 - Integration details (SDKs, worker placement, namespaces) should be captured in feature specs or ADRs as they are chosen.

@@ -3,16 +3,23 @@
   "private": true,
   "workspaces": [
     "frontend",
-    "backend"
+    "backend",
+    "temporal-worker"
   ],
   "scripts": {
     "dev": "concurrently -n api,web -c blue,green \"npm run dev -w backend\" \"npm run dev -w frontend\"",
-    "build": "npm run build -w backend && npm run build -w frontend",
+    "build": "npm run build -w backend && npm run build -w frontend && npm run build -w temporal-worker",
     "start": "npm run start -w backend",
-    "seed": "npm run seed -w backend"
+    "seed": "npm run seed -w backend",
+    "temporal:dev": "npm run dev -w temporal-worker",
+    "temporal:up": "docker compose -f docker-compose.temporal.yml up -d",
+    "temporal:down": "docker compose -f docker-compose.temporal.yml down -v",
+    "test:e2e": "playwright test",
+    "test:e2e:dashing": "playwright test tests/dashing-temporal.spec.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1",
+    "@temporalio/client": "^1.11.7",
     "@types/node": "^25.6.0",
     "concurrently": "^9.1.2"
   },
