@@ -1,9 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { test, expect } from "@playwright/test";
 import { DashingTemporalPublisher } from "./support/dashingTemporalPublisher";
-
-const DASHING_API =
-  process.env.DASHING_API_URL ?? "http://127.0.0.1:3000";
+import {
+  readRunSuiteIdOrFresh,
+  tryClaimSuiteStartEmit,
+} from "./support/playwrightRunSuiteId";
 
 let temporalReachable = false;
 
@@ -32,17 +33,22 @@ test.beforeAll(async () => {
  *
  * | Hook        | Why / what we emit |
  * | ----------- | ------------------- |
- * | `beforeAll` | One **suite** per describe block: `suite_start` once the Temporal client is ready. |
+ * | `beforeAll` | One **suite** per Playwright run: stable `suiteUuid` from `globalSetup` (see `playwrightRunSuiteId.ts`); only the first worker emits `suite_start`. |
  * | `beforeEach` | Each Playwright **test** is one logical test case: `test_case_start` with the Playwright test title. |
  * | `afterEach`  | When the test body finishes, `test_case_end` with **pass** or **fail** from Playwright’s outcome. |
  * | `afterAll`   | `suite_end` so the Temporal workflow can complete after all cases are reported. |
  *
- * `describe` is **serial** so hook order matches execution order (no interleaving of cases).
+ * **`test.describe.configure({ mode: 'default' })`** — overrides the repo’s `fullyParallel` for
+ * this block so tests run **in declaration order** on one worker, which keeps the shared
+ * `suiteUuid` / `publisher` / `currentCaseUuid` hooks coherent (one Temporal suite, sensible signal
+ * order). This is **not** `mode: 'serial'` (serial skips remaining tests after the first failure).
+ *
+ * Tests use only **`data:` URLs** (no app server, no Dashing UI) so they stay offline-friendly.
  */
 test.describe("Durable publish via Temporal (hook-shaped)", () => {
-  test.describe.configure({ mode: "serial" });
+  test.describe.configure({ mode: "default" });
 
-  /** Single suite UUID for the whole describe — matches one Temporal workflow id. */
+  /** Suite UUID for this Playwright run (all workers) — matches one Temporal workflow id. */
   let suiteUuid: string;
   let suiteName: string;
   /** Temporal client + workflow handle; created in `beforeAll`. */
@@ -50,23 +56,27 @@ test.describe("Durable publish via Temporal (hook-shaped)", () => {
   /** Per–test-case UUID for the current `test()`; set in `beforeEach`, cleared in `afterEach`. */
   let currentCaseUuid: string | null = null;
 
-  test.beforeAll(async () => {
+  test.beforeAll(async ({}, testInfo) => {
     test.skip(
       !temporalReachable,
       "Start Temporal and `npm run temporal:dev` (worker) to run this describe."
     );
 
-    suiteUuid = randomUUID();
+    const rootDir = testInfo.config.rootDir;
+    suiteUuid = readRunSuiteIdOrFresh(rootDir);
     suiteName = `Playwright Temporal ${suiteUuid.slice(0, 8)}`;
     publisher = await DashingTemporalPublisher.connect({ suiteUuid });
 
-    // Real suites begin once: publish start so Dashing can show the run as in progress.
-    await publisher.emit({
-      type: "suite_start",
-      suiteUuid,
-      suiteName,
-      startTime: new Date().toISOString(),
-    });
+    // First worker only: after a failed test Playwright recycles the worker and runs `beforeAll`
+    // again; the suite id must stay the same and `suite_start` must not be duplicated.
+    if (tryClaimSuiteStartEmit(rootDir)) {
+      await publisher.emit({
+        type: "suite_start",
+        suiteUuid,
+        suiteName,
+        startTime: new Date().toISOString(),
+      });
+    }
   });
 
   test.beforeEach(async ({}, testInfo) => {
@@ -116,46 +126,47 @@ test.describe("Durable publish via Temporal (hook-shaped)", () => {
     }
   });
 
-  test("step A — minimal browser check", async ({ page }) => {
+  test("renders a static paragraph for baseline", async ({ page }) => {
     await page.goto(
-      "data:text/html;charset=utf-8,<p id=\"step-a\">step-a</p>"
+      "data:text/html;charset=utf-8,<p id=\"baseline\">ready</p>"
     );
-    await expect(page.locator("#step-a")).toHaveText("step-a");
+    await expect(page.locator("#baseline")).toHaveText("ready");
   });
 
-  test("step B — second case reuses same suite", async ({ page }) => {
+  test("renders a second isolated paragraph", async ({ page }) => {
     await page.goto(
-      "data:text/html;charset=utf-8,<p id=\"step-b\">step-b</p>"
+      "data:text/html;charset=utf-8,<p id=\"iso\">isolated</p>"
     );
-    await expect(page.locator("#step-b")).toHaveText("step-b");
+    await expect(page.locator("#iso")).toHaveText("isolated");
   });
 
-  // test("Dashing API lists this suite and the browser steps", async () => {
-  //   const deadline = Date.now() + 60_000;
-  //   let foundSuite = false;
-  //   while (Date.now() < deadline && !foundSuite) {
-  //     const res = await fetch(`${DASHING_API}/api/suites`);
-  //     expect(res.ok).toBeTruthy();
-  //     const body = (await res.json()) as {
-  //       suites: Array<{ suiteUuid: string }>;
-  //     };
-  //     foundSuite = body.suites.some((s) => s.suiteUuid === suiteUuid);
-  //     if (!foundSuite) {
-  //       await new Promise((r) => setTimeout(r, 500));
-  //     }
-  //   }
-  //   expect(foundSuite, "suite row should exist after Temporal delivery").toBe(true);
+  test("increments a button label from zero to one", async ({ page }) => {
+    await page.goto(
+      'data:text/html;charset=utf-8,<button id="ctr">0</button><script>document.getElementById("ctr").onclick=function(){this.textContent=String(1+Number(this.textContent))}</script>'
+    );
+    await page.locator("#ctr").click();
+    await expect(page.locator("#ctr")).toHaveText("1");
+  });
 
-  //   const detail = await fetch(
-  //     `${DASHING_API}/api/suites/${encodeURIComponent(suiteUuid)}/tests`
-  //   );
-  //   expect(detail.ok).toBeTruthy();
-  //   const detailJson = (await detail.json()) as {
-  //     tests: Array<{ testName: string }>;
-  //   };
-  //   expect(detailJson.tests.length).toBeGreaterThanOrEqual(2);
-  //   const titles = detailJson.tests.map((t) => t.testName);
-  //   expect(titles.some((t) => t.includes("step A"))).toBe(true);
-  //   expect(titles.some((t) => t.includes("step B"))).toBe(true);
-  // });
+  test("reads the second item in a static list", async ({ page }) => {
+    await page.goto(
+      "data:text/html;charset=utf-8,<ul><li>one</li><li>two</li></ul>"
+    );
+    await expect(page.getByRole("listitem").nth(1)).toHaveText("two");
+  });
+
+  test("demonstrates a failing assertion for Dashing", async ({ page }) => {
+    // Fails on purpose so `afterEach` emits test_case_end with testResult `fail` to Dashing.
+    await page.goto(
+      "data:text/html;charset=utf-8,<p id=\"bad\">actual</p>"
+    );
+    await expect(page.locator("#bad")).toHaveText("not what is rendered");
+  });
+
+  test("recovers with a passing check after a failed sibling", async ({ page }) => {
+    await page.goto(
+      "data:text/html;charset=utf-8,<p id=\"recover\">ok</p>"
+    );
+    await expect(page.locator("#recover")).toHaveText("ok");
+  });
 });
