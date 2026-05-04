@@ -15,7 +15,7 @@
     "temporal:up": "docker compose -f docker-compose.temporal.yml up -d",
     "temporal:down": "docker compose -f docker-compose.temporal.yml down -v",
     "test:e2e": "playwright test",
-    "test:e2e:dashing": "playwright test tests/dashing-temporal.spec.ts"
+    "test:e2e:dashing": "playwright test tests/dashing-temporal.spec.ts --reporter=line"
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1",
