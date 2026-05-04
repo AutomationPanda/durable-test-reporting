@@ -1,6 +1,12 @@
-# durable-test-reporting
+# Durable Test Reporting with Temporal
 
-**Dashing** — durable live test reporting: a dashboard for test runs with real-time updates and **Temporal**-backed durable publishing of result events to the API.
+This repository is **Dashing**, a small **live test reporting** stack: a React dashboard and an HTTP API backed by SQLite. The sample also shows how **Temporal** can sit between a test runner and that API so result events are published **durably** (retried activities) instead of relying on a single fire-and-forget HTTP call from the suite.
+
+**How it works end to end**
+
+1. **Ingest** — Clients send structured test-result events (`suite_start`, `test_case_start`, `test_case_end`, `suite_end`) to `POST /api/events`; the API persists them and the UI reads the data.
+2. **Durable path** — A **Temporal workflow** receives the same events as **signals**. For each event, a worker **activity** POSTs to the API until it succeeds, so brief API or network outages do not lose events while the workflow is still running.
+3. **Playwright** — Root-level **Playwright** tests under `tests/` exercise the app (E2E) and include `tests/dashing-temporal.spec.ts`, which drives the **same event model** through Temporal using lifecycle hooks (see `tests/support/dashingTemporalPublisher.ts`). Run them with `npm run test:e2e` or `npm run test:e2e:dashing` when Temporal, the API, and the worker are up.
 
 This repository is an **npm workspaces** monorepo:
 
