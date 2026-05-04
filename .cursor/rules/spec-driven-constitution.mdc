@@ -1,0 +1,30 @@
+---
+description: Follow project constitution and specs before implementing behavior
+alwaysApply: true
+---
+
+# Spec-driven development — Dashing
+
+## Mandatory references
+
+Before **implementing or materially changing** product behavior, architecture, or stack choices:
+
+1. Read **`specs/CONSTITUTION.md`** and follow its hierarchy and workflow.
+2. Read relevant files in **`specs/product/`** and **`specs/engineering/`** for product and technical intent.
+3. When work is tied to a feature, read the specific **`specs/features/<slug>.md`** file for that effort.
+
+Do **not** contradict the constitution or authoritative product/engineering docs without an **explicit** human decision reflected in updated Markdown (same PR or follow-up committed immediately).
+
+## Brain dump
+
+**`specs/product/brain-dump.md`** is archival seed material only. Prefer **`specs/product/`** (except the brain dump), **`specs/engineering/`**, and **`specs/features/`** as sources of truth.
+
+## If specs are incomplete
+
+- Prefer **narrow, documented assumptions** in the feature file (or ask the human) over silent invention of requirements.
+- If acceptance criteria cannot be met as written, **stop** and propose spec edits rather than shipping mismatched behavior.
+
+## Implementation discipline
+
+- Prefer a governing **`specs/features/<slug>.md`** with acceptance criteria for feature-sized work.
+- If instructions lack a spec, clarify scope or draft spec updates before large or ambiguous implementations.
