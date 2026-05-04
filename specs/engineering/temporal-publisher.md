@@ -18,7 +18,26 @@ This document describes how **Playwright (and other publishers)** send Dashing *
 - **Activity** `publishDashingEvent`: POST to `DASHING_API_URL` (default `http://127.0.0.1:3000`) with exponential **retries** until success or max attempts.
 - **Completion**: after a `suite_end` event is successfully published, the workflow drains any remaining queued signals, then **completes**.
 
-Publishers should use a **fresh `suiteUuid`** per run (e.g. `randomUUID()`) so each launch gets its own workflow id.
+Publishers should use a **run-wide stable `suiteUuid`** when the same logical suite must survive process boundaries (e.g. Playwright worker restart). See Playwright `globalSetup` + `tests/support/playwrightRunSuiteId.ts`; otherwise a fresh UUID per run is fine.
+
+## Signals vs activities (why both)
+
+| Mechanism | Role in this repo | Temporal rules |
+| --------- | ------------------ | ---------------- |
+| **Signals** (`dashingEvent`) | Ingest **test result events** from publishers into the workflow. The handler only appends to an in-memory queue—**deterministic**, no I/O. | Workflow code must be deterministic and non-blocking. Signals are recorded in workflow history and redelivered on replay; the handler runs again as part of replay. |
+| **Activities** (`publishDashingEvent`) | **Side effects**: HTTP `POST` to Dashing. **Retries** apply here (network, 5xx, process crash). | Activities may perform non-deterministic work and can run on any worker; Temporal guarantees **at-least-once** execution while retrying until the configured policy stops. |
+
+**Do not** call `fetch`, databases, or clocks from the workflow body (beyond what the SDK allows for workflow time). Those belong in activities (or local activities if you introduce them later).
+
+## Idempotency and duplicates
+
+Several layers can deliver the **same logical event more than once**:
+
+1. **Activity retries** — If `publishDashingEvent` fails after Dashing accepted the request but before the activity returned, or on ambiguous timeouts, Temporal may **retry** the activity. The API may see **duplicate POSTs** for the same payload.
+2. **Duplicate signals** — Publishers should not double-send intentionally, but replays, client retries, or future bridges could enqueue the same event twice. The workflow currently **does not** dedupe by event id; each signal becomes one queue entry and one activity attempt.
+3. **`suite_start` twice** — Playwright mitigates a second `suite_start` after worker recycle via a filesystem lock (`tryClaimSuiteStartEmit`); the workflow does not enforce “exactly once” for that signal.
+
+**Downstream contract:** Dashing’s ingest should tolerate **at-least-once** delivery. Today’s SQLite helpers partially reflect that: `recordSuiteStart` and `recordTestCaseStart` use **`ON CONFLICT … DO NOTHING`**; `recordSuiteEnd` and `recordTestCaseEnd` **UPDATE** by id (re-applying the same end state is usually harmless). Stronger guarantees would add explicit **idempotency keys** or dedupe tables keyed by `(suiteUuid, testUuid, eventType, …)` if payloads can vary across retries.
 
 ## Task queue and env
 

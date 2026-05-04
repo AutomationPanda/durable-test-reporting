@@ -2,6 +2,10 @@ import * as wf from "@temporalio/workflow";
 import type { publishDashingEvent } from "./activities.js";
 import type { DashingEvent } from "./dashingEvent.js";
 
+/**
+ * Activities = side effects (HTTP). Retries and timeouts apply here only—not to
+ * the signal handler below (workflow code must stay deterministic).
+ */
 const { publishDashingEvent: publish } = wf.proxyActivities<{
   publishDashingEvent: typeof publishDashingEvent;
 }>({
@@ -14,12 +18,16 @@ const { publishDashingEvent: publish } = wf.proxyActivities<{
   },
 });
 
+/** Ingress: publishers send events here. Recorded in history; handler runs on replay. */
 export const dashingEventSignal = wf.defineSignal<[DashingEvent]>("dashingEvent");
 
 /**
- * One workflow per suite run: signals enqueue events; activities POST to Dashing
- * with retries until success. Completes after `suite_end` is delivered (and any
- * events already queued after it are flushed).
+ * One workflow per suite run: **signals** enqueue events (deterministic); **activities**
+ * POST each event to Dashing with retries (at-least-once delivery to the API).
+ *
+ * Completes after `suite_end` is successfully published, then drains any signals
+ * already queued after it. This workflow does not dedupe duplicate signals; see
+ * `specs/engineering/temporal-publisher.md` (idempotency).
  */
 export async function dashingSuitePublishWorkflow(): Promise<void> {
   const queue: DashingEvent[] = [];

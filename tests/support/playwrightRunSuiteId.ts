@@ -11,6 +11,12 @@ import {
 } from "node:fs";
 import path from "node:path";
 
+/**
+ * Stable **suite UUID** for one Playwright invocation plus an exclusive **suite_start**
+ * claim—avoids a second `suite_start` signal after Playwright replaces the worker (see
+ * `specs/engineering/temporal-publisher.md`, idempotency).
+ */
+
 /** Ephemeral run artifacts (not under `test-results/`, which Playwright may clear). */
 const DASHING_PLAYWRIGHT_DIR = ".dashing-playwright";
 const RUN_SUITE_ID_FILE = "run-suite-id";

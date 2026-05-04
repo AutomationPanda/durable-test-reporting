@@ -12,8 +12,16 @@ export type DashingTemporalPublisherOptions = {
 };
 
 /**
- * Sends result events through Temporal so the worker can POST them to Dashing
- * with activity retries (durable delivery).
+ * Sends result events through Temporal as **workflow signals** so a worker **activity**
+ * can POST them to Dashing with retries.
+ *
+ * **Signal vs activity:** this class only talks to Temporal Server (signals /
+ * `signalWithStart`). HTTP to Dashing happens inside `publishDashingEvent` on the
+ * worker—that boundary is where retry and at-least-once semantics apply.
+ *
+ * **Duplicates:** avoid calling `emit` twice for the same logical event; the workflow
+ * does not dedupe. Temporal still guarantees signal delivery to history, but client
+ * retries could double-send—keep emits idempotent at the source when possible.
  */
 export class DashingTemporalPublisher {
   private readonly workflowId: string;

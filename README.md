@@ -64,7 +64,7 @@ npm run dev -w frontend
 
 Use this when you want **Playwright** (or any client using `tests/support/dashingTemporalPublisher.ts`) to send events **through Temporal** so the **worker** retries HTTP delivery to Dashing if the API or network is down.
 
-You need **three** processes: Temporal Server, Dashing API, and the **Temporal worker**. More detail: [`specs/engineering/temporal-publisher.md`](specs/engineering/temporal-publisher.md).
+You need **three** processes: Temporal Server, Dashing API, and the **Temporal worker**. More detail—**signals vs activities**, **retries**, and **idempotency**: [`specs/engineering/temporal-publisher.md`](specs/engineering/temporal-publisher.md).
 
 ### 1. Start Temporal Server
 
