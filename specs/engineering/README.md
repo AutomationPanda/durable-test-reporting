@@ -7,6 +7,7 @@ This directory holds **stable technical intent**: stack, architecture notes, and
 | Path | Role |
 |------|------|
 | [tech-stack.md](tech-stack.md) | Approved stack and layers. |
+| [test-result-events.md](test-result-events.md) | Suite / test case model, event payloads, and Dashing ingest–store–display obligations. |
 
 Optional **architecture decision records (ADRs)** live in this directory as Markdown files (for example `0001-short-title.md`). Each ADR should cover situational context, decision, consequences, and links to feature specs or code.
 

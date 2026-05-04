@@ -42,7 +42,7 @@ The **brain dump** (`specs/product/brain-dump.md`) is historical input only; aut
 | ----------------------- | --------------------------------------------------------------------------------------------------------- |
 | `specs/CONSTITUTION.md` | This file: process, hierarchy, workflow.                                                                  |
 | `specs/product/`        | Product vision, goals, scope boundaries, archival brain dump (`brain-dump.md`).                           |
-| `specs/engineering/`    | Tech stack, integration assumptions, optional ADRs (Markdown files in this directory).                    |
+| `specs/engineering/`    | Tech stack, domain/event contracts (e.g. test results), integration assumptions, optional ADRs (Markdown files in this directory). |
 | `specs/features/`       | Per-feature Markdown: user story, description, acceptance criteria (and optional diagrams, API sketches). |
 
 
