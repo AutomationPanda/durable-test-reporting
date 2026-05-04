@@ -8,6 +8,7 @@
   --color-text-muted: #94a3b8;
   --color-text-subtle: #64748b;
   --color-accent: #2dd4bf;
+  --color-focus-ring: rgba(45, 212, 191, 0.45);
   --color-border: #334155;
   --color-surface: #0f172a;
   --color-surface-elevated: #1e293b;
@@ -15,6 +16,10 @@
   --color-status-complete-bg: rgba(52, 211, 153, 0.15);
   --color-status-progress: #fbbf24;
   --color-status-progress-bg: rgba(251, 191, 36, 0.12);
+  --color-status-pass: #4ade80;
+  --color-status-pass-bg: rgba(74, 222, 128, 0.14);
+  --color-status-fail: #f87171;
+  --color-status-fail-bg: rgba(248, 113, 113, 0.14);
   --color-error-bg: rgba(120, 53, 15, 0.35);
   --color-error-border: rgba(146, 64, 14, 0.65);
   --color-error-text: #fde68a;

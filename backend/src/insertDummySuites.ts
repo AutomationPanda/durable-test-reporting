@@ -1,10 +1,20 @@
-import { seedDummySuites } from "./db.js";
+import { seedDummySuites, seedDummyTestCases } from "./db.js";
 
-const inserted: number = seedDummySuites();
-if (inserted === 0) {
+const suitesInserted: number = seedDummySuites();
+const testsInserted: number = seedDummyTestCases();
+
+if (suitesInserted === 0) {
   console.log(
-    "Dummy suites already present (same UUIDs). No new rows inserted."
+    "Dummy suites already present (same UUIDs). No new suite rows."
   );
 } else {
-  console.log(`Inserted ${inserted} dummy suite run(s).`);
+  console.log(`Inserted ${suitesInserted} dummy suite run(s).`);
+}
+
+if (testsInserted === 0) {
+  console.log(
+    "Dummy test cases already present (same UUIDs). No new test rows."
+  );
+} else {
+  console.log(`Inserted ${testsInserted} dummy test case(s).`);
 }

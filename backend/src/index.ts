@@ -1,6 +1,14 @@
 import cors from "cors";
 import express, { type Request, type Response } from "express";
-import { listSuiteRuns, recordSuiteEnd, recordSuiteStart } from "./db.js";
+import {
+  getSuiteByUuid,
+  listSuiteRuns,
+  listTestCasesForSuite,
+  recordSuiteEnd,
+  recordSuiteStart,
+  recordTestCaseEnd,
+  recordTestCaseStart,
+} from "./db.js";
 
 const app = express();
 const PORT: number = Number(process.env.PORT) || 3000;
@@ -43,8 +51,60 @@ function parseSuiteEnd(body: JsonBody): { ok: true; value: { suiteUuid: string; 
   return { ok: true, value: { suiteUuid, endTime } };
 }
 
+function parseTestCaseStart(
+  body: JsonBody
+): { ok: true; value: { testUuid: string; suiteUuid: string; testName: string; startTime: string } } | { ok: false; error: string } {
+  const { testUuid, suiteUuid, testName, startTime } = body;
+  if (!isNonEmptyString(testUuid)) {
+    return { ok: false, error: "testUuid is required" };
+  }
+  if (!isNonEmptyString(suiteUuid)) {
+    return { ok: false, error: "suiteUuid is required" };
+  }
+  if (!isNonEmptyString(testName)) {
+    return { ok: false, error: "testName is required" };
+  }
+  if (!isNonEmptyString(startTime)) {
+    return { ok: false, error: "startTime is required" };
+  }
+  return { ok: true, value: { testUuid, suiteUuid, testName, startTime } };
+}
+
+function parseTestCaseEnd(
+  body: JsonBody
+): { ok: true; value: { testUuid: string; endTime: string; testResult: "pass" | "fail" } } | { ok: false; error: string } {
+  const { testUuid, endTime, testResult } = body;
+  if (!isNonEmptyString(testUuid)) {
+    return { ok: false, error: "testUuid is required" };
+  }
+  if (!isNonEmptyString(endTime)) {
+    return { ok: false, error: "endTime is required" };
+  }
+  if (testResult !== "pass" && testResult !== "fail") {
+    return { ok: false, error: "testResult must be pass or fail" };
+  }
+  return { ok: true, value: { testUuid, endTime, testResult } };
+}
+
 app.get("/api/suites", (_req: Request, res: Response) => {
   res.json({ suites: listSuiteRuns() });
+});
+
+app.get("/api/suites/:suiteUuid/tests", (req: Request, res: Response) => {
+  const suiteUuid = req.params.suiteUuid;
+  if (!isNonEmptyString(suiteUuid)) {
+    res.status(400).json({ error: "suiteUuid is required" });
+    return;
+  }
+  const suite = getSuiteByUuid(suiteUuid);
+  if (suite === null) {
+    res.status(404).json({ error: "Suite not found" });
+    return;
+  }
+  res.json({
+    suite,
+    tests: listTestCasesForSuite(suiteUuid),
+  });
 });
 
 app.post("/api/events", (req: Request, res: Response) => {
@@ -78,6 +138,33 @@ app.post("/api/events", (req: Request, res: Response) => {
       return;
     }
     recordSuiteEnd(parsed.value.suiteUuid, parsed.value.endTime);
+    res.status(204).send();
+    return;
+  }
+
+  if (type === "test_case_start") {
+    const parsed = parseTestCaseStart(record);
+    if (!parsed.ok) {
+      res.status(400).json({ error: parsed.error });
+      return;
+    }
+    recordTestCaseStart(
+      parsed.value.testUuid,
+      parsed.value.suiteUuid,
+      parsed.value.testName,
+      parsed.value.startTime
+    );
+    res.status(204).send();
+    return;
+  }
+
+  if (type === "test_case_end") {
+    const parsed = parseTestCaseEnd(record);
+    if (!parsed.ok) {
+      res.status(400).json({ error: parsed.error });
+      return;
+    }
+    recordTestCaseEnd(parsed.value.testUuid, parsed.value.endTime, parsed.value.testResult);
     res.status(204).send();
     return;
   }
